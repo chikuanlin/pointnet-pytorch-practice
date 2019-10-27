@@ -118,13 +118,13 @@ if __name__ == "__main__":
     parser.add_argument('-m40', '--modelnet40', action='store_true', default=False, help='Train and test ModelNet40')
     parser.add_argument('-n', '--num_points', action='store', type=int, default=1500)
     parser.add_argument('-p', '--model_path', action='store', type=str, default=None)
-    parser.add_argument('-d', '--dataset_percentage', action='store', type=float, default=0.05)
+    parser.add_argument('-d', '--dataset_percentage', action='store', type=float, default=1.0)
     parser.add_argument('-ft', '--feature_transform', action='store_true', default=False)
     parser.add_argument('-ftreg', '--feature_transform_reg', action='store', type=float, default=1e-3)
     parser.add_argument('-lr', '--learning_rate', action='store', type=float, default=1e-3)
     parser.add_argument('-w', '--weight_decay', action='store', type=float, default=1e-5)
     parser.add_argument('-b', '--batch_size', action='store', type=int, default=16)
-    parser.add_argument('-e', '--epochs', action='store', type=int, default=1)
+    parser.add_argument('-e', '--epochs', action='store', type=int, default=10)
     args = parser.parse_args()
 
     if args.modelnet10 and args.modelnet40:
