@@ -8,8 +8,8 @@ import torch.nn as nn
 import argparse
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), os.path.pardir)))
-from dataset.model_net_dataset import ModelNetDataset
-from model.pointnet_classification import PointNetClassification
+from dataset.stanford_3d_dataset import Stanford3dDetaset
+from model.pointnet_segmentation import PointNetSegmentation
 from model.tnet import tnet_regularization
 
 
@@ -21,6 +21,8 @@ def train_epoch(train_loader, net, criterion, optimizer, device, ft_reg):
         x = x.to(device)
         labels = labels.to(device)
         output, feat_mtx = net(x)
+        output = output.view(-1, output.shape[-1])
+        labels = labels.view(-1)
         loss = criterion(output, labels) + tnet_regularization(feat_mtx) * ft_reg
         loss.backward()
         optimizer.step()
@@ -42,6 +44,8 @@ def test_epoch(test_loader, net, criterion, device, ft_reg):
             x = x.to(device)
             labels = labels.to(device)
             output, feat_mtx = net(x)
+            output = output.view(-1, output.shape[-1])
+            labels = labels.view(-1)
             loss = criterion(output, labels) + tnet_regularization(feat_mtx) * ft_reg
             test_loss += loss.item()
             test_acc += check_accuracy(output, labels)
@@ -56,25 +60,19 @@ def check_accuracy(output, labels):
 
 
 def main(args):
+    train_areas = [1, 2, 3, 5]
+    val_area = [4]
+    test_area = [6]
 
-    dataset_path = 'dataset/modelnet10/' if args.modelnet10 else 'dataset/modelnet40/'
-    num_class = 10 if args.modelnet10 else 40
-
-    train_dataset = ModelNetDataset(dataset_path, 
-                                    num_points=args.num_points, 
-                                    mode='train',
-                                    percentage=args.dataset_percentage)
-    val_length = int(len(train_dataset) * 0.15)
-    train_dataset, val_dataset = random_split(train_dataset, [len(train_dataset) - val_length, val_length])
+    train_dataset = Stanford3dDetaset(areas=train_areas, num_points=args.num_points)
+    val_dataset = Stanford3dDetaset(areas=val_area, num_points=args.num_points)
     
     train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True)
     val_loader = DataLoader(val_dataset, batch_size=args.batch_size, shuffle=False)
 
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
     print('Device:', device)
-    net = PointNetClassification(num_class, 
-                                 feature_transformation=args.feature_transform
-                                ).double().to(device)
+    net = PointNetSegmentation(13, points_dim=6, feature_transformation=args.feature_transform).double().to(device)
 
     if args.model_path is not None:
         net.load_state_dict(torch.load(args.model_path))
@@ -101,10 +99,7 @@ def main(args):
     torch.save(net.state_dict(), model_path)
 
     print('Start Testing:')
-    test_dataset = ModelNetDataset(dataset_path, 
-                                   num_points=-1, 
-                                   mode='test',
-                                   percentage=args.dataset_percentage)
+    test_dataset = Stanford3dDetaset(areas=test_area, num_points=-1)
     test_loader = DataLoader(test_dataset, batch_size=1, shuffle=False)
     test_loss, test_acc = test_epoch(test_loader, net, criterion, device, args.feature_transform_reg)
     print('Test result: test loss %.6f test acc: %.4f' %(test_loss, test_acc))
@@ -113,26 +108,15 @@ def main(args):
         torch.cuda.empty_cache()
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description='Training ModelNet')
-    parser.add_argument('-m10', '--modelnet10', action='store_true', default=False, help='Train and test ModelNet10')
-    parser.add_argument('-m40', '--modelnet40', action='store_true', default=False, help='Train and test ModelNet40')
-    parser.add_argument('-n', '--num_points', action='store', type=int, default=1500)
+    parser = argparse.ArgumentParser(description='Training Stanford3d')
+    parser.add_argument('-n', '--num_points', action='store', type=int, default=2048)
     parser.add_argument('-p', '--model_path', action='store', type=str, default=None)
-    parser.add_argument('-d', '--dataset_percentage', action='store', type=float, default=0.05)
     parser.add_argument('-ft', '--feature_transform', action='store_true', default=False)
     parser.add_argument('-ftreg', '--feature_transform_reg', action='store', type=float, default=1e-3)
     parser.add_argument('-lr', '--learning_rate', action='store', type=float, default=1e-3)
     parser.add_argument('-w', '--weight_decay', action='store', type=float, default=1e-5)
     parser.add_argument('-b', '--batch_size', action='store', type=int, default=16)
-    parser.add_argument('-e', '--epochs', action='store', type=int, default=1)
+    parser.add_argument('-e', '--epochs', action='store', type=int, default=10)
     args = parser.parse_args()
-
-    if args.modelnet10 and args.modelnet40:
-        print('Cannot train two datasets at the same time!')
-        exit(1)
-
-    if not args.modelnet10 and not args.modelnet40:
-        print('Please select which dataset to train and test with flag -modelnet10 or -modelnet40')
-        exit(1)
 
     main(args)

@@ -1,25 +1,25 @@
 import torch
 import torch.nn as nn
-from model.tnet_kxk import TNetKxK
+from model.tnet import TNet
 
 class PointNetClassification(nn.Module):
     '''
     PointNet for classification \n
-    Input: batch_size x num_points x 3 \n
+    Input: batch_size x num_points x points_dim \n
     Output: batch_size x num_class
     '''
 
-    def __init__(self, num_class, feature_transformation=False):
+    def __init__(self, num_class, points_dim=3, feature_transformation=False):
         super(PointNetClassification, self).__init__()
         self.feature_transformation = feature_transformation
-        self.trans1 = TNetKxK(k=3)
+        self.trans1 = TNet(k=points_dim)
         self.conv2 = nn.Sequential(
-            nn.Conv1d(3, 64, 1),
+            nn.Conv1d(points_dim, 64, 1),
             nn.BatchNorm1d(64),
             nn.ReLU()
         )
         if self.feature_transformation:
-            self.trans3 = TNetKxK(k=64)
+            self.trans3 = TNet(k=64)
         self.conv4 = nn.Sequential(
             nn.Conv1d(64, 128, 1),
             nn.BatchNorm1d(128),
@@ -49,11 +49,13 @@ class PointNetClassification(nn.Module):
         if self.feature_transformation:
             trans_mtx2 = self.trans3(x)
             x = torch.bmm(x.transpose(1, 2), trans_mtx2).transpose(1, 2)
+        else:
+            trans_mtx2 = None
         x = self.conv4(x)
         x = self.conv5(x)
         x = torch.max(x, dim=2)[0]
         x = self.fc6(x)
         x = self.fc7(x)
         x = self.fc8(x)
-
-        return x
+        
+        return x, trans_mtx2

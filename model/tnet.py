@@ -1,13 +1,20 @@
 import torch
 import torch.nn as nn
 
-class TNetKxK(nn.Module):
+
+def tnet_regularization(trans_mtx):
+    if trans_mtx is None:
+        return 0.0
+    iden = torch.eye(trans_mtx.shape[1], device=trans_mtx.device, dtype=trans_mtx.dtype).unsqueeze(0)
+    return torch.mean(torch.norm(torch.bmm(trans_mtx, trans_mtx.transpose(2,1)) - iden, dim=(1,2)))
+
+class TNet(nn.Module):
     '''
     Input: batch_size x K x num_points \n
     Output: batch_size x K x K
     '''
     def __init__(self, k=3):
-        super(TNetKxK, self).__init__()
+        super(TNet, self).__init__()
         self.k = k
         self.conv1 = nn.Sequential(
             nn.Conv1d(self.k, 64, 1),
