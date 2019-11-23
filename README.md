@@ -18,3 +18,5 @@ python3 train/train_modelnet.py -m40
 python3dataset/stanford_3d_dataset.py -p FOLDER_PATH
 python3 train/train_stanford3d.py
 ```
+## Reference
+[fxia22/pointnet.pytorch](https://github.com/fxia22/pointnet.pytorch)

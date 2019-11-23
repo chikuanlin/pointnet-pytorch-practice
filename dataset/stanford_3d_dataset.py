@@ -90,7 +90,7 @@ def load_points(path):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Dataset generation for ModelNet')
-    parser.add_argument('-p', '--path', action='store', type=str, help='Directory to ModelNet')
+    parser.add_argument('-p', '--path', action='store', type=str, help='Directory to Stanford3D')
     args = parser.parse_args()
 
     print('Generating Stanford3D dataset.')
