@@ -60,46 +60,53 @@ def check_accuracy(output, labels):
 
 
 def main(args):
-    train_areas = [1, 2, 3, 5]
-    val_area = [4]
+    
     test_area = [6]
+    if args.use_val:
+        train_areas = [1, 2, 3, 5]
+        val_area = [4]
+        val_dataset = Stanford3dDetaset(areas=val_area, num_points=args.num_points)
+        val_loader = DataLoader(val_dataset, batch_size=args.batch_size, shuffle=False, drop_last=True)
+    else:
+        train_areas = [1, 2, 3, 4, 5]
 
     train_dataset = Stanford3dDetaset(areas=train_areas, num_points=args.num_points)
-    val_dataset = Stanford3dDetaset(areas=val_area, num_points=args.num_points)
+    train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=4, drop_last=True)
     
-    train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, drop_last=True)
-    val_loader = DataLoader(val_dataset, batch_size=args.batch_size, shuffle=False, drop_last=True)
 
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
     print('Device:', device)
-    net = PointNetSegmentation(13, points_dim=6, feature_transformation=args.feature_transform).double().to(device)
+    net = PointNetSegmentation(13, points_dim=9, feature_transformation=args.feature_transform).double().to(device)
 
     if args.model_path is not None:
         net.load_state_dict(torch.load(args.model_path))
+        model_path = args.model_path
         print('Model loaded from ', args.model_path)
+    else:
+        model_path = time.strftime("model_%H_%M_%S.pth", time.gmtime())
+        print('New model path: %s' %(model_path))
 
     criterion = nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(net.parameters(), lr=args.learning_rate, weight_decay=args.weight_decay)
+    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=20, gamma=0.5)
 
     print('Start training:')
     for epoch in range(args.epochs):
         tic = time.time()
 
         train_loss, train_acc = train_epoch(train_loader, net, criterion, optimizer, device, args.feature_transform_reg)
-        val_loss, val_acc = test_epoch(val_loader, net, criterion, device, args.feature_transform_reg)
+        scheduler.step()
 
+        val_loss, val_acc = 0.0, 0.0
+        if args.use_val and epoch % 3 == 0:
+            val_loss, val_acc = test_epoch(val_loader, net, criterion, device, args.feature_transform_reg)
+        
+        torch.save(net.state_dict(), model_path)
         print('Epoch [%3d/%3d] train loss: %.6f train acc: %.4f val loss: %.6f val acc: %.4f elasped time(s) %.2f' %(
             epoch+1, args.epochs, train_loss, train_acc, val_loss, val_acc, time.time()-tic))
-    
-    if args.model_path is not None:
-        model_path = args.model_path
-    else:
-        model_path = 'model.pth'
-    print('Model saved to: %s' %(model_path))
-    torch.save(net.state_dict(), model_path)
 
     print('Start Testing:')
-    test_dataset = Stanford3dDetaset(areas=test_area, num_points=-1)
+    test_dataset = Stanford3dDetaset(areas=test_area, num_points=args.num_points)# num_points=-1
     test_loader = DataLoader(test_dataset, batch_size=1, shuffle=False)
     test_loss, test_acc = test_epoch(test_loader, net, criterion, device, args.feature_transform_reg)
     print('Test result: test loss %.6f test acc: %.4f' %(test_loss, test_acc))
@@ -114,9 +121,10 @@ if __name__ == "__main__":
     parser.add_argument('-ft', '--feature_transform', action='store_true', default=False)
     parser.add_argument('-ftreg', '--feature_transform_reg', action='store', type=float, default=1e-3)
     parser.add_argument('-lr', '--learning_rate', action='store', type=float, default=1e-3)
-    parser.add_argument('-w', '--weight_decay', action='store', type=float, default=1e-5)
+    parser.add_argument('-w', '--weight_decay', action='store', type=float, default=1e-4)
     parser.add_argument('-b', '--batch_size', action='store', type=int, default=16)
-    parser.add_argument('-e', '--epochs', action='store', type=int, default=10)
+    parser.add_argument('-e', '--epochs', action='store', type=int, default=100)
+    parser.add_argument('-val', '--use_val', action='store_true', default=False)
     args = parser.parse_args()
 
     main(args)

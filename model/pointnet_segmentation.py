@@ -9,7 +9,7 @@ class PointNetSegmentation(nn.Module):
     Output: batch_size x num_points x num_class
     '''
 
-    def __init__(self, num_class, points_dim=3, feature_transformation=False):
+    def __init__(self, num_class, points_dim=9, feature_transformation=False):
         super(PointNetSegmentation, self).__init__()
         self.num_class = num_class
         self.feature_transformation = feature_transformation

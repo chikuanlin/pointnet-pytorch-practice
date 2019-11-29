@@ -25,6 +25,7 @@ class Stanford3dDetaset(Dataset):
         points = np.load(self.data_path[index])
         labels = points[:, -1]
         points = points[:, :-1]
+        points = np.concatenate((points, points[:, :3]), axis=1)
 
         # random sampling
         if self.num_points != -1:
@@ -33,9 +34,9 @@ class Stanford3dDetaset(Dataset):
             labels = labels[rand_idx]
 
         # points scaling
-        points[:, :3] -= np.mean(points[:, :3], axis=0, keepdims=True)
-        points[:, :3] /= np.max(np.linalg.norm(points[:, :3], axis=1))
-        points[:, 3:] /= 255.0
+        points[:, 6:] -= np.mean(points[:, 6:], axis=0, keepdims=True)
+        points[:, 6:] /= np.max(np.linalg.norm(points[:, 6:], axis=1))
+        points[:, 3:6] /= 255.0
 
         return torch.from_numpy(points), torch.tensor(labels, dtype=torch.long)
 
